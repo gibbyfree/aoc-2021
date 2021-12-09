@@ -59,6 +59,16 @@ proc findEasys(entries: seq[Entry]): int =
             if isOne(val) or isFour(val) or isSeven(val) or isEight(val):
                 result += 1
 
+proc findFour(segments: seq[string]): string =
+    for str in segments:
+        if isFour(str):
+            result = str
+
+proc findSeven(segments: seq[string]): string =
+    for str in segments:
+        if isSeven(str):
+            result = str
+
 proc checkForSignalIntercept(known: string, unknown: string): bool =
     var knownCharSeq: seq[char] = toSeq(known.items)
     for c in knownCharSeq:
@@ -77,57 +87,7 @@ proc checkForNIntercepts(known: string, unknown: string, target: int): bool =
     else:
         return false
 
-proc findSignalMapping(patterns: seq[string]): Table[int, string] =
-    # find 1478
-    for val in patterns:
-        if isOne(val):
-            result[1] = val
-        elif isFour(val):
-            result[4] = val
-        elif isSeven(val):
-            result[7] = val
-        elif isEight(val):
-            result[8] = val
-    # separate possible 069 (nice) and possible 235
-    var zeroSixNine: seq[string]
-    var twoThreeFive: seq[string]
-    for val in patterns:
-        if isZeroSixNine(val):
-            zeroSixNine.add(val)
-        elif isTwoThreeFive(val):
-            twoThreeFive.add(val)
-    # identify 069 
-    # 9 and 4 are the only non-8 digits in this set that share bcdf
-    for val in zeroSixNine:
-        if checkForSignalIntercept(result[4], val):
-            result[9] = val
-            zeroSixNine.delete(zeroSixNine.find(val))
-            break
-    # 0 and 7 are the only remaining non-8 digits in this set that share acf
-    for val in zeroSixNine:
-        if checkForSignalIntercept(result[7], val):
-            result[0] = val
-            zeroSixNine.delete(zeroSixNine.find(val))
-            break
-    # whatever remains is 6!
-    result[6] = zeroSixNine.pop()
-    # identify 235
-    # 3 is the only digit in this set that shares acf with 7
-    for val in twoThreeFive:
-        if checkForSignalIntercept(result[7], val):
-            result[3] = val
-            twoThreeFive.delete(twoThreeFive.find(val))
-            break
-    # 5 doesn't share all of 4's segments, but unlike 2 it has bdf. 2 only has cd
-    for val in twoThreeFive:
-        if checkForNIntercepts(result[4], val, 3):
-            result[5] = val
-            twoThreeFive.delete(twoThreeFive.find(val))
-            break
-    # whatever remains is 2!
-    result[2] = twoThreeFive.pop()
-
-proc decodeOutput(puzzleKey: Table[int, string], output: seq[string]): int =
+proc decodeOutput(fourStr: string, sevenStr: string, output: seq[string]): int =
     var decoded: seq[int]
     for i in output:
         if isOne(i):
@@ -139,16 +99,16 @@ proc decodeOutput(puzzleKey: Table[int, string], output: seq[string]): int =
         elif isFour(i):
             decoded.add(4)
         elif isTwoThreeFive(i):
-            if checkForSignalIntercept(puzzleKey[7], i):
+            if checkForSignalIntercept(sevenStr, i):
                 decoded.add(3)
-            elif checkForNIntercepts(puzzleKey[4], i, 3):
+            elif checkForNIntercepts(fourStr, i, 3):
                 decoded.add(5)
             else:
                 decoded.add(2)
         elif isZeroSixNine(i):
-            if checkForSignalIntercept(puzzleKey[4], i):
+            if checkForSignalIntercept(fourStr, i):
                 decoded.add(9)
-            elif checkForSignalIntercept(puzzleKey[7], i):
+            elif checkForSignalIntercept(sevenStr, i):
                 decoded.add(0)
             else:
                 decoded.add(6)
@@ -162,10 +122,11 @@ proc decodeOutput(puzzleKey: Table[int, string], output: seq[string]): int =
 
 proc findOutputSums(entries: seq[Entry]): int =
     for e in entries:
-        # generate puzzle key
-        var puzzleKey: Table[int, string] = findSignalMapping(e.patterns)
+        # find 4 + 7
+        var fourStr: string = findFour(e.patterns)
+        var sevenStr: string = findSeven(e.patterns)
         # decode output
-        var output: int = decodeOutput(puzzleKey, e.output)
+        var output: int = decodeOutput(fourStr, sevenStr, e.output)
         result += output
 
 let data = getInput("input.txt")
